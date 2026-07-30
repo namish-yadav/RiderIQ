@@ -4,69 +4,108 @@ export default async function handler(req, res) {
   let token = await getValidAccessToken(req, res);
 
   if (!token) {
-    return res.status(200).json({ connected: false });
+    return res.status(200).json({
+      connected: false,
+      error: 'NO_TOKEN',
+      diagnostics: {
+        spotifyStatus: 401,
+        spotifyMeStatus: null,
+        spotifyPlayerStatus: null,
+        spotifyUserId: null,
+        spotifyErrorMessage: 'No access token available in cookies'
+      }
+    });
   }
 
   try {
+    // 1. Test Endpoint 1: GET /v1/me (User Profile)
+    let meRes = await fetch('https://api.spotify.com/v1/me', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    let spotifyUserId = null;
+    let spotifyUserProduct = null;
+    let spotifyMeError = null;
+
+    if (meRes.ok) {
+      const meData = await meRes.json().catch(() => ({}));
+      spotifyUserId = meData?.id || null;
+      spotifyUserProduct = meData?.product || null;
+    } else {
+      const meErrBody = await meRes.json().catch(() => null);
+      spotifyMeError = meErrBody?.error?.message || meErrBody?.error_description || meErrBody?.message || `HTTP ${meRes.status}`;
+    }
+
+    // 2. Test Endpoint 2: GET /v1/me/player (Playback State)
     let playerRes = await fetch('https://api.spotify.com/v1/me/player?additional_types=track,episode', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
-    // If token returned 401 Unauthorized, automatically refresh access token and retry
+    // If token returned 401 Unauthorized on player endpoint, attempt token refresh and retry
     if (playerRes.status === 401) {
-      console.log('[Spotify] Access token 401 Unauthorized. Attempting refresh token flow...');
+      console.log('[Spotify] Access token 401 Unauthorized on /me/player. Retrying with fresh token...');
       const newToken = await getValidAccessToken(req, res, true);
       if (newToken) {
         token = newToken;
+        meRes = await fetch('https://api.spotify.com/v1/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (meRes.ok) {
+          const meData = await meRes.json().catch(() => ({}));
+          spotifyUserId = meData?.id || null;
+          spotifyUserProduct = meData?.product || null;
+        }
+
         playerRes = await fetch('https://api.spotify.com/v1/me/player?additional_types=track,episode', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
       } else {
-        console.warn('[Spotify] Refresh token flow failed after 401 Unauthorized.');
+        console.warn('[Spotify] Token refresh failed after 401 on /me/player.');
         return res.status(200).json({
           connected: false,
           error: 'TOKEN_EXPIRED',
+          spotifyMeStatus: meRes.status,
+          spotifyPlayerStatus: 401,
+          spotifyUserId,
           diagnostics: {
             spotifyStatus: 401,
-            hasItem: false,
-            itemType: null,
-            trackName: null,
-            artistName: null,
-            isPlaying: null,
-            deviceName: null,
-            deviceType: null,
-            hasDeviceId: false,
-            progressMs: null,
-            durationMs: null
+            spotifyMeStatus: meRes.status,
+            spotifyPlayerStatus: 401,
+            spotifyUserId,
+            spotifyErrorMessage: 'Access token expired and refresh token failed'
           }
         });
       }
     }
 
-    // Explicitly handle 403 Forbidden without masking as nothing playing
+    // Capture Spotify Player raw error payload if non-2xx
+    let playerErrBody = null;
+    let spotifyErrorMessage = null;
+    let spotifyErrorReason = null;
+
+    if (!playerRes.ok && playerRes.status !== 204) {
+      playerErrBody = await playerRes.json().catch(() => null);
+      spotifyErrorMessage =
+        playerErrBody?.error?.message ||
+        playerErrBody?.error_description ||
+        playerErrBody?.message ||
+        (typeof playerErrBody === 'string' ? playerErrBody : null) ||
+        `Spotify API returned HTTP ${playerRes.status}`;
+      spotifyErrorReason = playerErrBody?.error?.reason || playerErrBody?.reason || null;
+    }
+
+    // Explicit 403 Forbidden handling with full dual-endpoint diagnostics
     if (playerRes.status === 403) {
-      const errData = await playerRes.json().catch(() => null);
-      const spotifyErrorMessage = errData?.error?.message || errData?.error_description || 'Spotify API 403 Forbidden';
-      const spotifyErrorReason = errData?.error?.reason || null;
-
-      let spotifyUserId = null;
-      try {
-        const meRes = await fetch('https://api.spotify.com/v1/me', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (meRes.ok) {
-          const meData = await meRes.json();
-          spotifyUserId = meData?.id || null;
-        }
-      } catch (e) {
-        // Safe fallback
-      }
-
       const diagnostics = {
         spotifyStatus: 403,
-        spotifyErrorMessage,
-        spotifyErrorReason,
-        spotifyUserId,
+        spotifyMeStatus: meRes.status,
+        spotifyPlayerStatus: 403,
+        spotifyUserId: spotifyUserId || null,
+        spotifyUserProduct: spotifyUserProduct || null,
+        spotifyErrorMessage: spotifyErrorMessage || 'Spotify API 403 Forbidden',
+        spotifyErrorReason: spotifyErrorReason || null,
+        spotifyMeError: spotifyMeError || null,
+        spotifyRawErrorBody: playerErrBody,
         hasItem: false,
         itemType: null,
         trackName: null,
@@ -78,13 +117,19 @@ export default async function handler(req, res) {
         progressMs: null,
         durationMs: null
       };
-      console.warn('[Spotify Diagnostics 403 Forbidden]', JSON.stringify(diagnostics));
+      console.warn('[Spotify 403 Diagnostics]', JSON.stringify(diagnostics, null, 2));
 
       return res.status(200).json({
         connected: true,
         error: 'SPOTIFY_403_FORBIDDEN',
-        spotifyErrorMessage,
-        spotifyUserId,
+        spotifyMeStatus: meRes.status,
+        spotifyPlayerStatus: 403,
+        spotifyUserId: spotifyUserId || null,
+        spotifyUserProduct: spotifyUserProduct || null,
+        spotifyErrorMessage: spotifyErrorMessage || 'Spotify API 403 Forbidden',
+        spotifyErrorReason: spotifyErrorReason || null,
+        spotifyMeError: spotifyMeError || null,
+        spotifyRawErrorBody: playerErrBody,
         isPlaying: false,
         nothingPlaying: false,
         diagnostics
@@ -94,6 +139,10 @@ export default async function handler(req, res) {
     if (playerRes.status === 204) {
       const diagnostics = {
         spotifyStatus: 204,
+        spotifyMeStatus: meRes.status,
+        spotifyPlayerStatus: 204,
+        spotifyUserId,
+        spotifyUserProduct,
         hasItem: false,
         itemType: null,
         trackName: null,
@@ -105,13 +154,16 @@ export default async function handler(req, res) {
         progressMs: null,
         durationMs: null
       };
-      console.log('[Spotify Diagnostics]', JSON.stringify(diagnostics));
+      console.log('[Spotify Diagnostics 204]', JSON.stringify(diagnostics));
       return res.status(200).json({
         connected: true,
         isPlaying: false,
         nothingPlaying: true,
         item: null,
         device: null,
+        spotifyMeStatus: meRes.status,
+        spotifyPlayerStatus: 204,
+        spotifyUserId,
         diagnostics
       });
     }
@@ -154,6 +206,10 @@ export default async function handler(req, res) {
 
       const diagnostics = {
         spotifyStatus: playerRes.status,
+        spotifyMeStatus: meRes.status,
+        spotifyPlayerStatus: playerRes.status,
+        spotifyUserId,
+        spotifyUserProduct,
         hasItem: Boolean(item),
         itemType: itemType,
         trackName: item?.name || null,
@@ -165,7 +221,7 @@ export default async function handler(req, res) {
         progressMs: typeof data?.progress_ms === 'number' ? data.progress_ms : null,
         durationMs: typeof item?.duration_ms === 'number' ? item.duration_ms : null
       };
-      console.log('[Spotify Diagnostics]', JSON.stringify(diagnostics));
+      console.log('[Spotify Diagnostics 200]', JSON.stringify(diagnostics));
 
       if (!item) {
         return res.status(200).json({
@@ -174,6 +230,9 @@ export default async function handler(req, res) {
           nothingPlaying: true,
           item: null,
           device: data?.device || null,
+          spotifyMeStatus: meRes.status,
+          spotifyPlayerStatus: playerRes.status,
+          spotifyUserId,
           diagnostics
         });
       }
@@ -193,16 +252,21 @@ export default async function handler(req, res) {
           type: itemType
         },
         device: data.device || null,
+        spotifyMeStatus: meRes.status,
+        spotifyPlayerStatus: playerRes.status,
+        spotifyUserId,
         diagnostics
       });
     }
 
-    const errData = await playerRes.json().catch(() => null);
-    const spotifyErrorMessage = errData?.error?.message || errData?.error_description || null;
-
     const diagnostics = {
       spotifyStatus: playerRes.status,
+      spotifyMeStatus: meRes.status,
+      spotifyPlayerStatus: playerRes.status,
+      spotifyUserId,
       spotifyErrorMessage,
+      spotifyErrorReason,
+      spotifyRawErrorBody: playerErrBody,
       hasItem: false,
       itemType: null,
       trackName: null,
@@ -218,7 +282,12 @@ export default async function handler(req, res) {
     return res.status(200).json({
       connected: true,
       error: `SPOTIFY_${playerRes.status}`,
+      spotifyMeStatus: meRes.status,
+      spotifyPlayerStatus: playerRes.status,
+      spotifyUserId,
       spotifyErrorMessage,
+      spotifyErrorReason,
+      spotifyRawErrorBody: playerErrBody,
       isPlaying: false,
       nothingPlaying: false,
       diagnostics
