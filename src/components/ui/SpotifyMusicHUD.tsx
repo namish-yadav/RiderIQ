@@ -65,9 +65,9 @@ function base64encode(input: ArrayBuffer): string {
 }
 
 export default function SpotifyMusicHUD() {
-  // App Spotify Client ID configured by Developer in .env
-  const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '';
-  const redirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || (window.location.origin + '/');
+  // App Spotify Client credentials configured in environment variables
+  const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || import.meta.env.SPOTIFY_CLIENT_ID || '';
+  const redirectUri = import.meta.env.SPOTIFY_REDIRECT_URI || 'https://rider-iq-seven.vercel.app/api/spotify/callback';
 
   // User Spotify Session States
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('spotify_user_access_token'));

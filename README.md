@@ -89,12 +89,13 @@ The RiderIQ ecosystem is expanding into a full hardware & mobile suite:
    cp .env.example .env
    ```
 
-   Add your **Spotify Application Client ID** registered in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard):
+   Add your **Spotify Application Credentials** registered in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard):
    ```env
-   VITE_SPOTIFY_CLIENT_ID=your_spotify_client_id_here
-   VITE_SPOTIFY_REDIRECT_URI=http://localhost:5173/
+   SPOTIFY_CLIENT_ID=your_spotify_client_id_here
+   SPOTIFY_CLIENT_SECRET=your_spotify_client_secret_here
+   SPOTIFY_REDIRECT_URI=https://rider-iq-seven.vercel.app/api/spotify/callback
    ```
-   *(Make sure to register `http://localhost:5173/` under Redirect URIs in your Spotify Dashboard).*
+   *(Make sure to register `https://rider-iq-seven.vercel.app/api/spotify/callback` under Redirect URIs in your Spotify Dashboard).*
 
 4. **Start the Development Server:**
    ```bash
