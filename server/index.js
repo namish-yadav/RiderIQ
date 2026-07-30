@@ -7,17 +7,47 @@ import crypto from 'crypto';
 dotenv.config();
 
 const app = express();
+const router = express.Router();
 const PORT = process.env.PORT || 3001;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID || '';
+const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID || process.env.VITE_SPOTIFY_CLIENT_ID || '';
 const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET || '';
-const SPOTIFY_REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI || `http://localhost:${PORT}/api/spotify/callback`;
+
+// Helper: Determine dynamic base URL for production on Vercel or local dev
+function getBaseUrl(req) {
+  if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL;
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+
+  if (req) {
+    const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers?.host;
+    if (host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
+      return `${proto}://${host}`;
+    }
+  }
+
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+
+  return 'https://rider-iq-seven.vercel.app';
+}
+
+function getSpotifyRedirectUri(req) {
+  if (process.env.SPOTIFY_REDIRECT_URI) return process.env.SPOTIFY_REDIRECT_URI;
+  return `${getBaseUrl(req)}/api/spotify/callback`;
+}
+
+function getFrontendUrl(req) {
+  if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
+  return getBaseUrl(req);
+}
 
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: (origin, callback) => {
+    // Allow credentials with any origin (production domain or dev)
+    return callback(null, true);
+  },
   credentials: true
 }));
 
@@ -28,9 +58,9 @@ function getBasicAuthHeader() {
 
 // Helper: Automatically validate or refresh Spotify Access Token from HTTP-Only cookies
 async function getValidAccessToken(req, res) {
-  let accessToken = req.cookies.spotify_access_token;
-  const refreshToken = req.cookies.spotify_refresh_token;
-  const tokenExpiresStr = req.cookies.spotify_token_expires;
+  let accessToken = req.cookies?.spotify_access_token;
+  const refreshToken = req.cookies?.spotify_refresh_token;
+  const tokenExpiresStr = req.cookies?.spotify_token_expires;
   const tokenExpires = tokenExpiresStr ? parseInt(tokenExpiresStr, 10) : 0;
 
   // 1. If access token is active and not expiring within 60s
@@ -60,15 +90,19 @@ async function getValidAccessToken(req, res) {
         const expiresInMs = (data.expires_in || 3600) * 1000;
         const newExpiry = Date.now() + expiresInMs;
 
+        const isProd = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+
         res.cookie('spotify_access_token', accessToken, {
           httpOnly: true,
           sameSite: 'lax',
+          secure: isProd,
           maxAge: expiresInMs
         });
 
         res.cookie('spotify_token_expires', newExpiry.toString(), {
           httpOnly: true,
           sameSite: 'lax',
+          secure: isProd,
           maxAge: 30 * 24 * 60 * 60 * 1000
         });
 
@@ -76,6 +110,7 @@ async function getValidAccessToken(req, res) {
           res.cookie('spotify_refresh_token', data.refresh_token, {
             httpOnly: true,
             sameSite: 'lax',
+            secure: isProd,
             maxAge: 30 * 24 * 60 * 60 * 1000
           });
         }
@@ -91,19 +126,24 @@ async function getValidAccessToken(req, res) {
 }
 
 // 1. Initiate Spotify OAuth 2.0 Authorization Flow
-app.get('/api/spotify/login', (req, res) => {
+router.get('/spotify/login', (req, res) => {
   if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
     return res.status(400).json({
       error: 'MISSING_CREDENTIALS',
-      message: 'SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET must be configured in backend .env file.'
+      message: 'SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET must be configured in backend environment variables.'
     });
   }
 
+  const redirectUri = getSpotifyRedirectUri(req);
+
   // Generate cryptographically secure state parameter
   const state = crypto.randomBytes(16).toString('hex');
+  const isProd = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+
   res.cookie('spotify_auth_state', state, {
     httpOnly: true,
     sameSite: 'lax',
+    secure: isProd,
     maxAge: 10 * 60 * 1000 // 10 minutes
   });
 
@@ -118,7 +158,7 @@ app.get('/api/spotify/login', (req, res) => {
     response_type: 'code',
     client_id: SPOTIFY_CLIENT_ID,
     scope: scopes,
-    redirect_uri: SPOTIFY_REDIRECT_URI,
+    redirect_uri: redirectUri,
     state: state,
     show_dialog: 'true'
   }).toString();
@@ -127,19 +167,21 @@ app.get('/api/spotify/login', (req, res) => {
 });
 
 // 2. Spotify OAuth Callback Route
-app.get('/api/spotify/callback', async (req, res) => {
+router.get('/spotify/callback', async (req, res) => {
   const { code, state, error } = req.query;
-  const storedState = req.cookies.spotify_auth_state;
+  const storedState = req.cookies?.spotify_auth_state;
+  const redirectUri = getSpotifyRedirectUri(req);
+  const frontendUrl = getFrontendUrl(req);
 
   res.clearCookie('spotify_auth_state');
 
   if (error || !state || state !== storedState) {
     console.warn("OAuth Callback Error or State Mismatch:", { error, state, storedState });
-    return res.redirect(`${FRONTEND_URL}/#spotify-intercom?error=${encodeURIComponent(error || 'state_mismatch')}`);
+    return res.redirect(`${frontendUrl}/#spotify-intercom?error=${encodeURIComponent(String(error || 'state_mismatch'))}`);
   }
 
   if (!code) {
-    return res.redirect(`${FRONTEND_URL}/#spotify-intercom?error=no_code_provided`);
+    return res.redirect(`${frontendUrl}/#spotify-intercom?error=no_code_provided`);
   }
 
   try {
@@ -152,7 +194,7 @@ app.get('/api/spotify/callback', async (req, res) => {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code: String(code),
-        redirect_uri: SPOTIFY_REDIRECT_URI
+        redirect_uri: redirectUri
       }).toString()
     });
 
@@ -160,16 +202,18 @@ app.get('/api/spotify/callback', async (req, res) => {
 
     if (!tokenResponse.ok || !data.access_token) {
       console.error("Token Exchange Error:", data);
-      return res.redirect(`${FRONTEND_URL}/#spotify-intercom?error=${encodeURIComponent(data.error_description || 'token_exchange_failed')}`);
+      return res.redirect(`${frontendUrl}/#spotify-intercom?error=${encodeURIComponent(data.error_description || 'token_exchange_failed')}`);
     }
 
     const expiresInMs = (data.expires_in || 3600) * 1000;
     const expiryTime = Date.now() + expiresInMs;
+    const isProd = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
 
-    // Secure HTTP-Only Cookie Storage (No Tokens in URL or LocalStorage)
+    // Secure HTTP-Only Cookie Storage
     res.cookie('spotify_access_token', data.access_token, {
       httpOnly: true,
       sameSite: 'lax',
+      secure: isProd,
       maxAge: expiresInMs
     });
 
@@ -177,6 +221,7 @@ app.get('/api/spotify/callback', async (req, res) => {
       res.cookie('spotify_refresh_token', data.refresh_token, {
         httpOnly: true,
         sameSite: 'lax',
+        secure: isProd,
         maxAge: 30 * 24 * 60 * 60 * 1000
       });
     }
@@ -184,18 +229,19 @@ app.get('/api/spotify/callback', async (req, res) => {
     res.cookie('spotify_token_expires', expiryTime.toString(), {
       httpOnly: true,
       sameSite: 'lax',
+      secure: isProd,
       maxAge: 30 * 24 * 60 * 60 * 1000
     });
 
-    return res.redirect(`${FRONTEND_URL}/#spotify-intercom?spotify=connected`);
+    return res.redirect(`${frontendUrl}/#spotify-intercom?spotify=connected`);
   } catch (err) {
     console.error("Error exchanging Spotify code:", err);
-    return res.redirect(`${FRONTEND_URL}/#spotify-intercom?error=server_error`);
+    return res.redirect(`${frontendUrl}/#spotify-intercom?error=server_error`);
   }
 });
 
 // 3. Get Spotify Connection Status & Profile Info
-app.get('/api/spotify/status', async (req, res) => {
+router.get('/spotify/status', async (req, res) => {
   const configured = Boolean(SPOTIFY_CLIENT_ID && SPOTIFY_CLIENT_SECRET);
   const token = await getValidAccessToken(req, res);
 
@@ -229,7 +275,7 @@ app.get('/api/spotify/status', async (req, res) => {
 });
 
 // 4. Get Currently Playing Track & Playback Telemetry
-app.get('/api/spotify/currently-playing', async (req, res) => {
+router.get('/spotify/currently-playing', async (req, res) => {
   const token = await getValidAccessToken(req, res);
 
   if (!token) {
@@ -242,7 +288,6 @@ app.get('/api/spotify/currently-playing', async (req, res) => {
     });
 
     if (playerRes.status === 204) {
-      // Nothing is currently playing
       return res.json({ connected: true, isPlaying: false, nothingPlaying: true });
     }
 
@@ -277,7 +322,7 @@ app.get('/api/spotify/currently-playing', async (req, res) => {
 });
 
 // 5. Get Recently Played Tracks
-app.get('/api/spotify/recently-played', async (req, res) => {
+router.get('/spotify/recently-played', async (req, res) => {
   const token = await getValidAccessToken(req, res);
 
   if (!token) {
@@ -309,7 +354,7 @@ app.get('/api/spotify/recently-played', async (req, res) => {
 });
 
 // 6. Playback Controls Proxy (Play, Pause, Next, Previous, Volume, Seek)
-app.post('/api/spotify/controls/:action', async (req, res) => {
+router.post('/spotify/controls/:action', async (req, res) => {
   const token = await getValidAccessToken(req, res);
   const { action } = req.params;
 
@@ -373,7 +418,7 @@ app.post('/api/spotify/controls/:action', async (req, res) => {
 });
 
 // 7. Disconnect / Logout Spotify Session
-app.post('/api/spotify/disconnect', (req, res) => {
+router.post('/spotify/disconnect', (req, res) => {
   res.clearCookie('spotify_access_token');
   res.clearCookie('spotify_refresh_token');
   res.clearCookie('spotify_token_expires');
@@ -381,6 +426,14 @@ app.post('/api/spotify/disconnect', (req, res) => {
   return res.json({ connected: false, message: 'Spotify account disconnected successfully.' });
 });
 
-app.listen(PORT, () => {
-  console.log(`⚡ RiderIQ Spotify OAuth Backend Server listening on http://localhost:${PORT}`);
-});
+// Register router under both /api and / to handle all routing environments
+app.use('/api', router);
+app.use('/', router);
+
+export default app;
+
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`⚡ RiderIQ Spotify OAuth Backend Server listening on http://localhost:${PORT}`);
+  });
+}

@@ -96,12 +96,14 @@ export default function SpotifyMusicHUD() {
 
   const progressTimerRef = useRef<any>(null);
 
-  // 1. Process OAuth 2.0 PKCE Callback on Mount
+  // 1. Process OAuth Callback & Check Spotify Backend Session Status
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const code = urlParams.get('code');
     const state = urlParams.get('state');
-    const error = urlParams.get('error');
+    const error = urlParams.get('error') || hashParams.get('error');
+    const spotifyConnected = urlParams.get('spotify') === 'connected' || hashParams.get('spotify') === 'connected';
 
     if (error) {
       if (error === 'access_denied') {
@@ -110,8 +112,28 @@ export default function SpotifyMusicHUD() {
         setApiError(`Spotify Authorization Error: ${error}`);
       }
       window.history.replaceState(null, '', window.location.pathname + window.location.hash);
-      return;
+    } else if (spotifyConnected) {
+      setApiError(null);
+      window.history.replaceState(null, '', window.location.pathname + window.location.hash);
     }
+
+    // Check backend session status (HTTP-Only Cookie flow)
+    const checkStatus = async () => {
+      try {
+        const res = await fetch('/api/spotify/status', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.connected) {
+            setIsConnected(true);
+            if (data.user) setUserProfile(data.user);
+            setApiError(null);
+          }
+        }
+      } catch (e) {
+        console.warn("Spotify status check failed:", e);
+      }
+    };
+    checkStatus();
 
     if (code && state) {
       const storedState = sessionStorage.getItem('spotify_auth_state');
@@ -224,22 +246,75 @@ export default function SpotifyMusicHUD() {
 
   // 3. User Profile & Telemetry Sync
   useEffect(() => {
-    if (!token) {
-      setIsConnected(false);
-      setCurrentlyPlaying(null);
-      setRecentlyPlayed([]);
-      return;
-    }
-
-    setIsConnected(true);
     let isMounted = true;
 
     const syncSpotifyData = async () => {
+      // 1. Try backend serverless endpoints (/api/spotify/* with HTTP-only cookies)
+      try {
+        const cpRes = await fetch('/api/spotify/currently-playing', { credentials: 'include' });
+        if (cpRes.ok) {
+          const data = await cpRes.json();
+          if (data.connected && isMounted) {
+            setIsConnected(true);
+            setNothingPlaying(Boolean(data.nothingPlaying));
+            if (data.item) {
+              setCurrentlyPlaying({
+                name: data.item.name,
+                artist: data.item.artist,
+                album: data.item.album,
+                coverUrl: data.item.coverUrl,
+                durationMs: data.item.durationMs,
+                progressMs: data.item.progressMs,
+                spotifyUrl: data.item.spotifyUrl,
+                isPlaying: Boolean(data.isPlaying)
+              });
+              setProgressMs(data.item.progressMs || 0);
+            } else {
+              setCurrentlyPlaying(null);
+            }
+
+            // Fetch recent tracks via backend
+            const recRes = await fetch('/api/spotify/recently-played', { credentials: 'include' });
+            if (recRes.ok) {
+              const recData = await recRes.json();
+              if (recData.items && isMounted) {
+                setRecentlyPlayed(recData.items);
+              }
+            }
+
+            // Fetch profile if missing
+            if (!userProfile) {
+              const stRes = await fetch('/api/spotify/status', { credentials: 'include' });
+              if (stRes.ok) {
+                const stData = await stRes.json();
+                if (stData.user && isMounted) {
+                  setUserProfile(stData.user);
+                }
+              }
+            }
+            return;
+          }
+        }
+      } catch (err) {
+        // Ignore backend fetch errors and fallback to client-side token if present
+      }
+
+      // 2. Fallback for client-side direct token (if stored in localStorage)
+      if (!token) {
+        if (isMounted) {
+          setIsConnected(false);
+          setCurrentlyPlaying(null);
+          setRecentlyPlayed([]);
+        }
+        return;
+      }
+
+      if (isMounted) setIsConnected(true);
+
       const validToken = await getValidAccessToken();
       if (!validToken) return;
 
       try {
-        // Fetch User Profile
         if (!userProfile) {
           const userRes = await fetch('https://api.spotify.com/v1/me', {
             headers: { Authorization: `Bearer ${validToken}` }
@@ -253,7 +328,6 @@ export default function SpotifyMusicHUD() {
           }
         }
 
-        // Fetch Currently Playing Track
         const playerRes = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
           headers: { Authorization: `Bearer ${validToken}` }
         });
@@ -286,7 +360,6 @@ export default function SpotifyMusicHUD() {
           }
         }
 
-        // Fetch Recently Played Tracks
         const recentRes = await fetch('https://api.spotify.com/v1/me/player/recently-played?limit=5', {
           headers: { Authorization: `Bearer ${validToken}` }
         });
@@ -311,7 +384,7 @@ export default function SpotifyMusicHUD() {
     };
 
     syncSpotifyData();
-    const interval = setInterval(syncSpotifyData, 4000); // 4s polling
+    const interval = setInterval(syncSpotifyData, 4000);
 
     return () => {
       isMounted = false;
@@ -335,46 +408,20 @@ export default function SpotifyMusicHUD() {
     return () => clearInterval(progressTimerRef.current);
   }, [currentlyPlaying?.isPlaying, currentlyPlaying?.durationMs]);
 
-  // Start Normal End-User OAuth Flow Redirect
+  // Start Spotify Production Backend OAuth Flow Redirect
   const handleConnectSpotify = async () => {
-    if (!clientId) {
-      setApiError("Spotify Application Client ID is not configured. Please add VITE_SPOTIFY_CLIENT_ID to your .env file.");
-      return;
-    }
-
     setIsConnecting(true);
     setApiError(null);
-
-    const codeVerifier = generateRandomString(64);
-    const hashed = await sha256(codeVerifier);
-    const codeChallenge = base64encode(hashed);
-    const state = generateRandomString(16);
-
-    sessionStorage.setItem('spotify_code_verifier', codeVerifier);
-    sessionStorage.setItem('spotify_auth_state', state);
-
-    const scopes = [
-      'user-read-currently-playing',
-      'user-read-playback-state',
-      'user-read-recently-played'
-    ].join(' ');
-
-    const authUrl = `https://accounts.spotify.com/authorize?` + new URLSearchParams({
-      client_id: clientId,
-      response_type: 'code',
-      redirect_uri: redirectUri,
-      code_challenge_method: 'S256',
-      code_challenge: codeChallenge,
-      state: state,
-      scope: scopes,
-      show_dialog: 'true'
-    }).toString();
-
-    window.location.href = authUrl;
+    window.location.href = '/api/spotify/login';
   };
 
   // Disconnect Spotify Account
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
+    try {
+      await fetch('/api/spotify/disconnect', { method: 'POST', credentials: 'include' });
+    } catch (e) {
+      console.warn("Spotify disconnect error:", e);
+    }
     setToken(null);
     setRefreshToken(null);
     setIsConnected(false);
