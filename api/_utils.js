@@ -15,9 +15,23 @@ export function getCookies(req) {
 }
 
 export function getCredentials() {
-  const clientId = process.env.SPOTIFY_CLIENT_ID || process.env.VITE_SPOTIFY_CLIENT_ID || '';
-  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET || '';
-  const redirectUri = process.env.SPOTIFY_REDIRECT_URI || 'https://rider-iq-seven.vercel.app/api/spotify/callback';
+  const env = process.env || {};
+  const clientId =
+    env['SPOTIFY_CLIENT_ID'] ||
+    env['VITE_SPOTIFY_CLIENT_ID'] ||
+    env['NEXT_PUBLIC_SPOTIFY_CLIENT_ID'] ||
+    '';
+
+  const clientSecret =
+    env['SPOTIFY_CLIENT_SECRET'] ||
+    env['VITE_SPOTIFY_CLIENT_SECRET'] ||
+    '';
+
+  const redirectUri =
+    env['SPOTIFY_REDIRECT_URI'] ||
+    env['VITE_SPOTIFY_REDIRECT_URI'] ||
+    'https://rider-iq-seven.vercel.app/api/spotify/callback';
+
   return { clientId, clientSecret, redirectUri };
 }
 

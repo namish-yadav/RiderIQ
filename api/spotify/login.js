@@ -3,14 +3,19 @@ import { getCredentials } from '../_utils.js';
 
 export default function handler(req, res) {
   const { clientId, clientSecret, redirectUri } = getCredentials();
+  const env = process.env || {};
 
   if (!clientId || !clientSecret) {
     return res.status(400).json({
       error: 'MISSING_CREDENTIALS',
-      message: 'SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET must be configured in backend environment variables.',
-      debug: {
-        hasClientId: Boolean(clientId),
-        hasClientSecret: Boolean(clientSecret)
+      message: 'SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET must be configured in Vercel environment variables.',
+      diagnostics: {
+        spotifyClientIdType: typeof env['SPOTIFY_CLIENT_ID'],
+        hasSpotifyClientId: Boolean(env['SPOTIFY_CLIENT_ID']),
+        hasViteSpotifyClientId: Boolean(env['VITE_SPOTIFY_CLIENT_ID']),
+        spotifyClientSecretType: typeof env['SPOTIFY_CLIENT_SECRET'],
+        hasSpotifyClientSecret: Boolean(env['SPOTIFY_CLIENT_SECRET']),
+        hasSpotifyRedirectUri: Boolean(env['SPOTIFY_REDIRECT_URI'])
       }
     });
   }
