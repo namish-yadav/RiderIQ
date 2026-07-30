@@ -260,6 +260,16 @@ export default function SpotifyMusicHUD() {
           const data = await cpRes.json();
           if (data.connected && isMounted) {
             setIsConnected(true);
+            if (data.error === 'SPOTIFY_403_FORBIDDEN' || data.diagnostics?.spotifyStatus === 403) {
+              const msg = data.spotifyErrorMessage || 'Spotify API 403 Forbidden';
+              if (msg.toLowerCase().includes('user not registered')) {
+                setApiError(`Spotify Dev Mode Restriction: Your account (${data.spotifyUserId || 'unregistered'}) is not added to 'Users and Access' in the Spotify Developer Dashboard.`);
+              } else {
+                setApiError(`Spotify Authorization Error (403): ${msg}. Click 'Re-connect Spotify' to refresh permissions.`);
+              }
+            } else {
+              setApiError(null);
+            }
             setNothingPlaying(Boolean(data.nothingPlaying));
             if (data.item) {
               setCurrentlyPlaying({
@@ -579,9 +589,18 @@ export default function SpotifyMusicHUD() {
 
       {/* Error Banner */}
       {apiError && (
-        <div className="mb-6 relative z-10 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-mono flex items-center gap-2.5">
-          <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-          <span>{apiError}</span>
+        <div className="mb-6 relative z-10 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-mono flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+            <span>{apiError}</span>
+          </div>
+          <button
+            onClick={handleConnectSpotify}
+            className="px-3 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-white font-bold text-[11px] border border-red-500/40 transition-all cursor-pointer flex items-center gap-1.5"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Re-connect Spotify</span>
+          </button>
         </div>
       )}
 

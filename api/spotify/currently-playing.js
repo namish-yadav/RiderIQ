@@ -43,6 +43,54 @@ export default async function handler(req, res) {
       }
     }
 
+    // Explicitly handle 403 Forbidden without masking as nothing playing
+    if (playerRes.status === 403) {
+      const errData = await playerRes.json().catch(() => null);
+      const spotifyErrorMessage = errData?.error?.message || errData?.error_description || 'Spotify API 403 Forbidden';
+      const spotifyErrorReason = errData?.error?.reason || null;
+
+      let spotifyUserId = null;
+      try {
+        const meRes = await fetch('https://api.spotify.com/v1/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          spotifyUserId = meData?.id || null;
+        }
+      } catch (e) {
+        // Safe fallback
+      }
+
+      const diagnostics = {
+        spotifyStatus: 403,
+        spotifyErrorMessage,
+        spotifyErrorReason,
+        spotifyUserId,
+        hasItem: false,
+        itemType: null,
+        trackName: null,
+        artistName: null,
+        isPlaying: null,
+        deviceName: null,
+        deviceType: null,
+        hasDeviceId: false,
+        progressMs: null,
+        durationMs: null
+      };
+      console.warn('[Spotify Diagnostics 403 Forbidden]', JSON.stringify(diagnostics));
+
+      return res.status(200).json({
+        connected: true,
+        error: 'SPOTIFY_403_FORBIDDEN',
+        spotifyErrorMessage,
+        spotifyUserId,
+        isPlaying: false,
+        nothingPlaying: false,
+        diagnostics
+      });
+    }
+
     if (playerRes.status === 204) {
       const diagnostics = {
         spotifyStatus: 204,
@@ -149,8 +197,12 @@ export default async function handler(req, res) {
       });
     }
 
+    const errData = await playerRes.json().catch(() => null);
+    const spotifyErrorMessage = errData?.error?.message || errData?.error_description || null;
+
     const diagnostics = {
       spotifyStatus: playerRes.status,
+      spotifyErrorMessage,
       hasItem: false,
       itemType: null,
       trackName: null,
@@ -165,8 +217,10 @@ export default async function handler(req, res) {
     console.warn('[Spotify Diagnostics Error]', JSON.stringify(diagnostics));
     return res.status(200).json({
       connected: true,
+      error: `SPOTIFY_${playerRes.status}`,
+      spotifyErrorMessage,
       isPlaying: false,
-      nothingPlaying: true,
+      nothingPlaying: false,
       diagnostics
     });
   } catch (err) {

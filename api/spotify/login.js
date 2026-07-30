@@ -21,8 +21,13 @@ export default function handler(req, res) {
   }
 
   const state = crypto.randomBytes(16).toString('hex');
+
+  // Clear old session cookies on re-authorization request
   res.setHeader('Set-Cookie', [
-    `spotify_auth_state=${state}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`
+    `spotify_auth_state=${state}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`,
+    `spotify_access_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
+    `spotify_refresh_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
+    `spotify_token_expires=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`
   ]);
 
   const scopes = [
