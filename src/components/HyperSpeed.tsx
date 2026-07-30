@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import type { FC } from 'react';
 import * as THREE from 'three';
 
-import './Hyperspeed.css';
+import './HyperSpeed.css';
 
 interface Distortion {
   uniforms: Record<string, { value: any }>;
