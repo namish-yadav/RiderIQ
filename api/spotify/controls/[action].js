@@ -16,6 +16,9 @@ export default async function handler(req, res) {
     case 'play':
       spotifyEndpoint = 'https://api.spotify.com/v1/me/player/play';
       method = 'PUT';
+      if (req.body && (req.body.context_uri || req.body.uris)) {
+        body = req.body;
+      }
       break;
     case 'pause':
       spotifyEndpoint = 'https://api.spotify.com/v1/me/player/pause';

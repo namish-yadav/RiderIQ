@@ -35,7 +35,7 @@ export function getCredentials() {
   return { clientId, clientSecret, redirectUri };
 }
 
-export async function getValidAccessToken(req, res) {
+export async function getValidAccessToken(req, res, forceRefresh = false) {
   const { clientId, clientSecret } = getCredentials();
   const cookies = getCookies(req);
 
@@ -44,8 +44,8 @@ export async function getValidAccessToken(req, res) {
   const tokenExpiresStr = cookies.spotify_token_expires;
   const tokenExpires = tokenExpiresStr ? parseInt(tokenExpiresStr, 10) : 0;
 
-  // 1. Valid access token active (expires in > 60s)
-  if (accessToken && Date.now() < tokenExpires - 60000) {
+  // 1. Valid access token active (expires in > 60s) unless forceRefresh requested
+  if (!forceRefresh && accessToken && Date.now() < tokenExpires - 60000) {
     return accessToken;
   }
 

@@ -25,22 +25,26 @@ interface RecentlyPlayedTrack {
   spotifyUrl: string;
 }
 
-const riderPlaylists: Record<string, { name: string; spotifyUrl: string }> = {
+const riderPlaylists: Record<string, { name: string; spotifyUrl: string; contextUri: string }> = {
   twisties: {
     name: "🏍️ Mountain Twisties Heavy Beat",
-    spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DXdLEN7aqioXM"
+    spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DX1l2y6dAhBm4",
+    contextUri: "spotify:playlist:37i9dQZF1DX1l2y6dAhBm4"
   },
   highway: {
     name: "⚡ Highway Cruise Synthwave",
-    spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DXdLEN7aqioXM"
+    spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DXdLEN7aqioXM",
+    contextUri: "spotify:playlist:37i9dQZF1DXdLEN7aqioXM"
   },
   night: {
     name: "🌃 Night Ride Lo-Fi",
-    spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DXdLEN7aqioXM"
+    spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DX6VqV2uF9vTD",
+    contextUri: "spotify:playlist:37i9dQZF1DX6VqV2uF9vTD"
   },
   track: {
     name: "🔥 Track Day High Octane",
-    spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DXdLEN7aqioXM"
+    spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DX4eRPd9Z5qZv",
+    contextUri: "spotify:playlist:37i9dQZF1DX4eRPd9Z5qZv"
   }
 };
 
@@ -328,7 +332,7 @@ export default function SpotifyMusicHUD() {
           }
         }
 
-        const playerRes = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+        const playerRes = await fetch('https://api.spotify.com/v1/me/player?additional_types=track,episode', {
           headers: { Authorization: `Bearer ${validToken}` }
         });
 
@@ -344,16 +348,29 @@ export default function SpotifyMusicHUD() {
               setNothingPlaying(true);
               setCurrentlyPlaying(null);
             } else {
+              const item = data.item;
+              let artistName = 'Unknown Artist';
+              if (item.artists && Array.isArray(item.artists) && item.artists.length > 0) {
+                artistName = item.artists.map((a: any) => a.name).join(', ');
+              } else if (item.show?.name) {
+                artistName = item.show.name;
+              } else if (item.show?.publisher) {
+                artistName = item.show.publisher;
+              }
+
+              const albumName = item.album?.name || item.show?.name || '';
+              const coverUrl = item.album?.images?.[0]?.url || item.images?.[0]?.url || item.show?.images?.[0]?.url || '';
+
               setNothingPlaying(false);
               setCurrentlyPlaying({
-                name: data.item.name,
-                artist: data.item.artists ? data.item.artists.map((a: any) => a.name).join(', ') : 'Unknown Artist',
-                album: data.item.album ? data.item.album.name : '',
-                coverUrl: data.item.album?.images?.[0]?.url || '',
-                durationMs: data.item.duration_ms || 0,
+                name: item.name || 'Unknown Track',
+                artist: artistName,
+                album: albumName,
+                coverUrl: coverUrl,
+                durationMs: item.duration_ms || 0,
                 progressMs: data.progress_ms || 0,
-                spotifyUrl: data.item.external_urls?.spotify || '',
-                isPlaying: data.is_playing
+                spotifyUrl: item.external_urls?.spotify || '',
+                isPlaying: Boolean(data.is_playing)
               });
               setProgressMs(data.progress_ms || 0);
             }
@@ -407,6 +424,24 @@ export default function SpotifyMusicHUD() {
 
     return () => clearInterval(progressTimerRef.current);
   }, [currentlyPlaying?.isPlaying, currentlyPlaying?.durationMs]);
+
+  // Launch curated rider playlist
+  const handlePlayPlaylist = async (key: string, pl: typeof riderPlaylists[string]) => {
+    setActivePlaylistKey(key);
+    try {
+      const res = await fetch('/api/spotify/controls/play', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ context_uri: pl.contextUri })
+      });
+      if (!res.ok) {
+        window.open(pl.spotifyUrl, '_blank');
+      }
+    } catch (e) {
+      window.open(pl.spotifyUrl, '_blank');
+    }
+  };
 
   // Start Spotify Production Backend OAuth Flow Redirect
   const handleConnectSpotify = async () => {
@@ -782,7 +817,7 @@ export default function SpotifyMusicHUD() {
               {Object.entries(riderPlaylists).map(([key, pl]) => (
                 <button
                   key={key}
-                  onClick={() => setActivePlaylistKey(key)}
+                  onClick={() => handlePlayPlaylist(key, pl)}
                   className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
                     activePlaylistKey === key
                       ? 'bg-[#1DB954]/15 border-[#1DB954]/50 text-white shadow-md'
