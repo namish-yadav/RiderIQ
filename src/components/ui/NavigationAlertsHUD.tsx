@@ -4,7 +4,7 @@ import { Navigation, AlertTriangle, ShieldCheck, MapPin, Zap, Radio, Volume2, Vo
 export default function NavigationAlertsHUD() {
   const [activeMapProvider, setActiveMapProvider] = useState<'google' | 'apple'>('google');
   const [speedLimit, setSpeedLimit] = useState<number>(80);
-  const [currentSpeed, setCurrentSpeed] = useState<number>(115);
+  const [currentSpeed, setCurrentSpeed] = useState<number>(67);
   const [audioEnabled, setAudioEnabled] = useState<boolean>(true);
 
   const speedDelta = currentSpeed - speedLimit;
