@@ -62,3 +62,10 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #06b6d4;
 }
+
+/* Apple iOS SF Pro Typography Class */
+.font-ios {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro Rounded", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

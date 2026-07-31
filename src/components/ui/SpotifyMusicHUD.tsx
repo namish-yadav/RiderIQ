@@ -863,44 +863,46 @@ export default function SpotifyMusicHUD() {
           </div>
 
           {/* Motorcycle Riding Audio Intelligence Switches */}
-          <div className="p-5 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+          <div className="p-4 sm:p-5 rounded-2xl bg-white/5 border border-white/10 space-y-3 max-w-full overflow-hidden">
             <div className="text-xs font-mono text-cyan-400 uppercase tracking-wider flex items-center gap-2">
-              <Zap className="w-4 h-4 text-cyan-400" />
+              <Zap className="w-4 h-4 text-cyan-400 shrink-0" />
               <span>MOTORCYCLE AUDIO INTELLIGENCE</span>
             </div>
 
             {/* Speed Adaptive Volume Switch */}
-            <div className="flex items-center justify-between p-3 rounded-xl bg-black/50 border border-white/10">
-              <div>
-                <div className="text-xs font-bold text-white">Speed-Adaptive Volume Boost</div>
-                <div className="text-[11px] text-neutral-400">Auto-boosts gain (+15%) at 100+ km/h for wind noise</div>
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-black/50 border border-white/10 gap-3 max-w-full overflow-hidden">
+              <div className="min-w-0 flex-1 pr-1">
+                <div className="text-xs font-bold text-white leading-snug">Speed-Adaptive Volume Boost</div>
+                <div className="text-[11px] text-neutral-400 leading-tight mt-0.5">Auto-boosts gain (+15%) at 100+ km/h for wind noise</div>
               </div>
               <button
                 onClick={() => setSpeedAdaptiveVolume(!speedAdaptiveVolume)}
-                className={`w-11 h-6 rounded-full transition-colors cursor-pointer relative p-0.5 ${
+                className={`w-12 h-7 rounded-full transition-colors cursor-pointer relative p-0.5 shrink-0 flex items-center min-h-[44px] ${
                   speedAdaptiveVolume ? 'bg-[#1DB954]' : 'bg-neutral-700'
                 }`}
+                title="Toggle Speed-Adaptive Volume Boost"
               >
                 <div className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform ${
-                  speedAdaptiveVolume ? 'translate-x-5' : 'translate-x-0'
+                  speedAdaptiveVolume ? 'translate-x-5' : 'translate-x-0.5'
                 }`} />
               </button>
             </div>
 
             {/* Auto Ducking Radar Alert */}
-            <div className="flex items-center justify-between p-3 rounded-xl bg-black/50 border border-white/10">
-              <div>
-                <div className="text-xs font-bold text-white">Radar Warning Auto-Ducking</div>
-                <div className="text-[11px] text-neutral-400">Ducks Spotify -12dB during Speed Camera alerts</div>
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-black/50 border border-white/10 gap-3 max-w-full overflow-hidden">
+              <div className="min-w-0 flex-1 pr-1">
+                <div className="text-xs font-bold text-white leading-snug">Radar Warning Auto-Ducking</div>
+                <div className="text-[11px] text-neutral-400 leading-tight mt-0.5">Ducks Spotify -12dB during Speed Camera alerts</div>
               </div>
               <button
                 onClick={() => setAutoDucking(!autoDucking)}
-                className={`w-11 h-6 rounded-full transition-colors cursor-pointer relative p-0.5 ${
+                className={`w-12 h-7 rounded-full transition-colors cursor-pointer relative p-0.5 shrink-0 flex items-center min-h-[44px] ${
                   autoDucking ? 'bg-[#1DB954]' : 'bg-neutral-700'
                 }`}
+                title="Toggle Radar Warning Auto-Ducking"
               >
                 <div className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform ${
-                  autoDucking ? 'translate-x-5' : 'translate-x-0'
+                  autoDucking ? 'translate-x-5' : 'translate-x-0.5'
                 }`} />
               </button>
             </div>
@@ -909,7 +911,7 @@ export default function SpotifyMusicHUD() {
             <div className="pt-2 grid grid-cols-2 gap-2 text-xs font-mono">
               <button
                 onClick={() => setSimSpeed(simSpeed >= 120 ? 60 : 120)}
-                className={`p-2.5 rounded-lg border text-center transition-all cursor-pointer ${
+                className={`p-2.5 rounded-lg border text-center transition-all cursor-pointer min-h-[44px] flex items-center justify-center ${
                   simSpeed >= 100 ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300' : 'bg-white/5 border-white/10 text-neutral-400'
                 }`}
               >
@@ -918,7 +920,7 @@ export default function SpotifyMusicHUD() {
 
               <button
                 onClick={() => setRadarAlertActive(!radarAlertActive)}
-                className={`p-2.5 rounded-lg border text-center transition-all cursor-pointer ${
+                className={`p-2.5 rounded-lg border text-center transition-all cursor-pointer min-h-[44px] flex items-center justify-center ${
                   radarAlertActive ? 'bg-red-500/20 border-red-500/40 text-red-300 animate-pulse' : 'bg-white/5 border-white/10 text-neutral-400'
                 }`}
               >

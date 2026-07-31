@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Navigation, AlertTriangle, ShieldCheck, MapPin, Zap, Radio, Volume2, VolumeX, BellRing } from 'lucide-react';
 
 export default function NavigationAlertsHUD() {
@@ -7,15 +7,23 @@ export default function NavigationAlertsHUD() {
   const [currentSpeed, setCurrentSpeed] = useState<number>(67);
   const [audioEnabled, setAudioEnabled] = useState<boolean>(true);
 
+  // Cached AudioContext — created once, reused for every beep
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
   const speedDelta = currentSpeed - speedLimit;
   const isSpeeding = speedDelta > 0;
 
-  // Web Audio API synthesized high-end radar chime tone
-  const playRadarBeep = (doublePulse = true) => {
+  // Web Audio API synthesized high-end radar chime tone.
+  // AudioContext is created once and reused to avoid GC churn during the 750ms loop.
+  const playRadarBeep = useCallback((doublePulse = true) => {
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
-      const ctx = new AudioContextClass();
+
+      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+        audioCtxRef.current = new AudioContextClass();
+      }
+      const ctx = audioCtxRef.current;
       if (ctx.state === 'suspended') {
         ctx.resume();
       }
@@ -45,11 +53,11 @@ export default function NavigationAlertsHUD() {
     } catch (e) {
       console.warn("Audio Context playback error:", e);
     }
-  };
+  }, []);
 
   // Continuous audio loop while speed exceeds speed limit
   useEffect(() => {
-    let intervalId: any = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
 
     if (isSpeeding && audioEnabled) {
       // Play immediately on speed limit breach
@@ -66,7 +74,7 @@ export default function NavigationAlertsHUD() {
         clearInterval(intervalId);
       }
     };
-  }, [isSpeeding, audioEnabled]);
+  }, [isSpeeding, audioEnabled, playRadarBeep]);
 
   return (
     <div className="rounded-2xl glass-panel border border-white/15 p-4 sm:p-6 md:p-8 relative overflow-hidden shadow-2xl">
@@ -78,7 +86,7 @@ export default function NavigationAlertsHUD() {
             <span>NAVIGATION & RADAR INTELLIGENCE</span>
           </div>
           <h3 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight leading-snug">
-            Speed Trap & Camera Alert Engine <span className="text-cyan-400 text-sm sm:text-base font-normal block sm:inline">(Up to 300 km/h)</span>
+            Speed Trap & Camera Alert Engine <span className="text-cyan-400 text-sm sm:text-base font-normal block sm:inline">(Up to 230 km/h)</span>
           </h3>
         </div>
 
@@ -90,7 +98,7 @@ export default function NavigationAlertsHUD() {
               setAudioEnabled(nextState);
               if (nextState) playRadarBeep(false);
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer border ${
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-mono font-bold transition-all cursor-pointer border min-h-[44px] ${
               audioEnabled
                 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-sm'
                 : 'bg-white/5 text-neutral-400 border-white/10 hover:text-white'
@@ -105,7 +113,7 @@ export default function NavigationAlertsHUD() {
           <div className="flex items-center gap-1 bg-white/5 p-1 rounded-full border border-white/10">
             <button
               onClick={() => setActiveMapProvider('google')}
-              className={`px-2.5 sm:px-3 py-1 rounded-full text-xs font-mono font-bold transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-2 rounded-full text-xs font-mono font-bold transition-all cursor-pointer whitespace-nowrap min-h-[44px] flex items-center justify-center ${
                 activeMapProvider === 'google'
                   ? 'bg-cyan-500 text-black shadow-md shadow-cyan-500/30'
                   : 'text-neutral-400 hover:text-white'
@@ -115,7 +123,7 @@ export default function NavigationAlertsHUD() {
             </button>
             <button
               onClick={() => setActiveMapProvider('apple')}
-              className={`px-2.5 sm:px-3 py-1 rounded-full text-xs font-mono font-bold transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-2 rounded-full text-xs font-mono font-bold transition-all cursor-pointer whitespace-nowrap min-h-[44px] flex items-center justify-center ${
                 activeMapProvider === 'apple'
                   ? 'bg-blue-500 text-white shadow-md shadow-blue-500/30'
                   : 'text-neutral-400 hover:text-white'
@@ -204,7 +212,7 @@ export default function NavigationAlertsHUD() {
 
             <button
               onClick={() => playRadarBeep(true)}
-              className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-mono font-bold text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-white/15 flex-shrink-0"
+              className="w-full sm:w-auto px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-mono font-bold text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-white/15 flex-shrink-0 min-h-[44px]"
               title="Test Web Audio API radar alert tone"
             >
               <BellRing className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
@@ -212,10 +220,10 @@ export default function NavigationAlertsHUD() {
             </button>
           </div>
 
-          {/* Interactive Speed Slider up to 300 km/h */}
+          {/* Interactive Speed Slider up to 230 km/h */}
           <div className="pt-2 space-y-3">
             <div className="flex justify-between items-center text-xs font-mono">
-              <span className="text-neutral-400 truncate">Simulate Rider Speed (50 - 300 km/h)</span>
+              <span className="text-neutral-400 truncate">Simulate Rider Speed (50 - 230 km/h)</span>
               <span className={`font-bold px-2 py-0.5 rounded text-[11px] whitespace-nowrap ml-2 ${isSpeeding ? 'bg-red-500/20 text-red-400 border border-red-500/40' : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'}`}>
                 {currentSpeed} km/h
               </span>
@@ -223,19 +231,19 @@ export default function NavigationAlertsHUD() {
             <input
               type="range"
               min="50"
-              max="300"
+              max="230"
               value={currentSpeed}
               onChange={(e) => setCurrentSpeed(parseInt(e.target.value, 10))}
-              className="w-full accent-cyan-400 bg-neutral-800 h-2.5 rounded-lg cursor-pointer"
+              className="w-full accent-cyan-400 bg-neutral-800 h-2.5 rounded-lg cursor-pointer min-h-[30px]"
             />
 
             {/* Quick Speed Preset Buttons */}
             <div className="grid grid-cols-5 gap-1 sm:gap-1.5 pt-1">
-              {[80, 120, 180, 240, 300].map((spd) => (
+              {[80, 100, 146, 180, 223].map((spd) => (
                 <button
                   key={spd}
                   onClick={() => setCurrentSpeed(spd)}
-                  className={`py-1.5 rounded text-[10px] sm:text-[11px] font-mono transition-all cursor-pointer border text-center whitespace-nowrap overflow-hidden ${
+                  className={`py-2 rounded text-[10px] sm:text-[11px] font-mono transition-all cursor-pointer border text-center whitespace-nowrap overflow-hidden min-h-[44px] flex items-center justify-center ${
                     currentSpeed === spd
                       ? 'bg-cyan-500 text-black font-extrabold border-cyan-400'
                       : 'bg-white/5 text-neutral-400 border-white/10 hover:text-white hover:bg-white/10'
@@ -253,10 +261,10 @@ export default function NavigationAlertsHUD() {
           <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
             <div className="flex items-center gap-2 text-white font-bold text-sm sm:text-base">
               <Zap className="w-4 h-4 text-cyan-400 flex-shrink-0" />
-              <span>High-Velocity Speed Radar (300 km/h Support)</span>
+              <span>High-Velocity Speed Radar (230 km/h Support)</span>
             </div>
             <p className="text-neutral-400 text-xs leading-relaxed">
-              Engineered specifically for high-speed highway riding and track runs up to 300 km/h. Synthesizes real-time audio warnings directly to Bluetooth intercoms 500m before enforcement zones.
+              Engineered specifically for high-speed highway riding and track runs up to 230 km/h. Synthesizes real-time audio warnings directly to Bluetooth intercoms 500m before enforcement zones.
             </p>
           </div>
 

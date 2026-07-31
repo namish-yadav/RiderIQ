@@ -1238,6 +1238,11 @@ class App {
   tick() {
     if (this.disposed) return;
 
+    if (document.hidden) {
+      requestAnimationFrame(this.tick);
+      return;
+    }
+
     if (!this.hasValidSize) {
       const w = this.container.offsetWidth;
       const h = this.container.offsetHeight;

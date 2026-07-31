@@ -11,8 +11,6 @@ if (typeof window !== "undefined") {
 }
 
 const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
-
 .cinematic-footer-wrapper {
   font-family: 'Plus Jakarta Sans', sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -263,52 +261,69 @@ export function CinematicFooter() {
       
       <div
         ref={wrapperRef}
-        className="relative min-h-[85vh] w-full"
+        className="relative min-h-[100vh] md:min-h-[85vh] w-full"
         style={{ clipPath: "polygon(0% 0, 100% 0%, 100% 100%, 0 100%)" }}
       >
-        <footer className="fixed bottom-0 left-0 flex min-h-[85vh] w-full flex-col justify-between overflow-hidden bg-black text-white cinematic-footer-wrapper">
+        <footer className="relative md:fixed md:bottom-0 md:left-0 flex min-h-[100vh] md:min-h-[85vh] w-full flex-col justify-between overflow-hidden bg-black text-white cinematic-footer-wrapper py-6 md:py-0">
           
           <div className="footer-aurora absolute left-1/2 top-1/2 h-[60vh] w-[80vw] -translate-x-1/2 -translate-y-1/2 animate-footer-breathe rounded-[50%] blur-[90px] pointer-events-none z-0" />
           <div className="footer-bg-grid absolute inset-0 z-0 pointer-events-none" />
 
           <div
             ref={giantTextRef}
-            className="footer-giant-bg-text absolute -bottom-[4vh] left-1/2 -translate-x-1/2 whitespace-nowrap z-0 pointer-events-none select-none uppercase"
+            className="footer-giant-bg-text absolute -bottom-[2vh] left-1/2 -translate-x-1/2 whitespace-nowrap z-0 pointer-events-none select-none uppercase"
           >
             RIDER IQ
           </div>
 
-          <div className="absolute top-10 left-0 w-full overflow-hidden border-y border-white/10 bg-black/70 backdrop-blur-md py-4 z-10 -rotate-1 scale-105 shadow-2xl">
+          <div className="relative md:absolute top-0 md:top-10 left-0 w-full overflow-hidden border-y border-white/10 bg-black/70 backdrop-blur-md py-3 md:py-4 z-10 md:-rotate-1 md:scale-105 shadow-2xl my-3 md:my-0">
             <div className="flex w-max animate-footer-scroll-marquee text-xs md:text-sm font-extrabold tracking-[0.3em] text-neutral-400 uppercase">
               <MarqueeItem />
               <MarqueeItem />
             </div>
           </div>
 
-          <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 mt-20 w-full max-w-5xl mx-auto text-center">
-            <div className="text-cyan-400 font-mono text-xs uppercase tracking-widest mb-3 border border-cyan-500/30 px-3 py-1 rounded-full bg-cyan-950/30 backdrop-blur-sm">
+          <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 md:px-6 my-6 md:mt-20 w-full max-w-5xl mx-auto text-center">
+            <div className="text-cyan-400 font-mono text-[10px] md:text-xs uppercase tracking-widest mb-3 border border-cyan-500/30 px-3 py-1 rounded-full bg-cyan-950/30 backdrop-blur-sm inline-block mx-auto">
               EARLY ACCESS
             </div>
             
             <h2
               ref={headingRef}
-              className="text-4xl md:text-7xl font-black footer-text-glow tracking-tighter mb-6 text-center leading-none"
+              className="text-3xl sm:text-4xl md:text-7xl font-black footer-text-glow tracking-tighter mb-4 md:mb-6 text-center leading-tight sm:leading-none"
             >
               Ready for the next ride.
             </h2>
 
-            <p className="text-neutral-400 max-w-lg mx-auto text-sm md:text-base mb-8">
+            <p className="text-neutral-400 max-w-lg mx-auto text-xs sm:text-sm md:text-base mb-6 md:mb-8 text-center px-2">
               RiderIQ is engineered for riders who demand precision, telemetry, and intelligent route insights.
             </p>
 
-            <div ref={linksRef} className="flex flex-col items-center gap-6 w-full">
-              <div className="flex flex-wrap justify-center gap-3 w-full">
+            <div ref={linksRef} className="flex flex-col items-center justify-center gap-5 md:gap-6 w-full max-w-full my-4 md:my-0">
+              {/* 1. Download Button */}
+              <div className="flex flex-wrap justify-center items-center gap-4 w-full text-center">
+                <MagneticButton
+                  as="a"
+                  href="https://github.com/namish-yadav/rideiq"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="footer-glass-pill px-6 sm:px-8 py-3.5 sm:py-4 rounded-full text-white font-bold text-xs sm:text-sm md:text-base flex items-center justify-center gap-2.5 bg-cyan-500/10 border-cyan-500/30 hover:border-cyan-400 shadow-xl shadow-cyan-500/10 min-h-[44px] mx-auto text-center"
+                >
+                  <svg className="w-5 h-5 text-cyan-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  <span>Download App / GitHub Repo</span>
+                </MagneticButton>
+              </div>
+
+              {/* 2. Credits (Social Links) */}
+              <div className="flex flex-wrap justify-center items-center gap-2.5 sm:gap-3 w-full text-center">
                 <MagneticButton
                   as="a"
                   href="https://instagram.com/nam7sh"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="footer-glass-pill px-5 py-2.5 rounded-full text-neutral-300 font-medium text-xs md:text-sm hover:text-white flex items-center gap-2"
+                  className="footer-glass-pill px-4 sm:px-5 py-2.5 rounded-full text-neutral-300 font-medium text-xs md:text-sm hover:text-white flex items-center justify-center gap-2 min-h-[44px] text-center"
                 >
                   <span>Instagram</span>
                   <span className="text-cyan-400 text-xs">@nam7sh</span>
@@ -319,7 +334,7 @@ export function CinematicFooter() {
                   href="https://github.com/namish-yadav"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="footer-glass-pill px-5 py-2.5 rounded-full text-neutral-300 font-medium text-xs md:text-sm hover:text-white flex items-center gap-2"
+                  className="footer-glass-pill px-4 sm:px-5 py-2.5 rounded-full text-neutral-300 font-medium text-xs md:text-sm hover:text-white flex items-center justify-center gap-2 min-h-[44px] text-center"
                 >
                   <span>GitHub</span>
                   <span className="text-cyan-400 text-xs">namish-yadav</span>
@@ -330,32 +345,17 @@ export function CinematicFooter() {
                   href="https://www.linkedin.com/in/namish-yadav-639769408/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="footer-glass-pill px-5 py-2.5 rounded-full text-neutral-300 font-medium text-xs md:text-sm hover:text-white flex items-center gap-2"
+                  className="footer-glass-pill px-4 sm:px-5 py-2.5 rounded-full text-neutral-300 font-medium text-xs md:text-sm hover:text-white flex items-center justify-center gap-2 min-h-[44px] text-center"
                 >
                   <span>LinkedIn</span>
                   <span className="text-cyan-400 text-xs">Namish Yadav</span>
                 </MagneticButton>
               </div>
-
-              <div className="pt-2 flex flex-wrap justify-center gap-4">
-                <MagneticButton
-                  as="a"
-                  href="https://github.com/namish-yadav/rideiq"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="footer-glass-pill px-8 py-4 rounded-full text-white font-bold text-sm md:text-base flex items-center gap-3 bg-cyan-500/10 border-cyan-500/30 hover:border-cyan-400 shadow-xl shadow-cyan-500/10"
-                >
-                  <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Download App / GitHub Repo
-                </MagneticButton>
-              </div>
             </div>
           </div>
 
-          <div className="relative z-20 w-full pb-8 px-6 md:px-12 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="text-neutral-400 text-[11px] md:text-xs font-semibold tracking-wider uppercase order-2 md:order-1 flex items-center gap-2">
+          <div className="relative z-20 w-full pt-4 pb-6 px-4 md:px-12 flex flex-col md:flex-row items-center justify-between gap-4 text-center">
+            <div className="text-neutral-400 text-[10px] sm:text-[11px] md:text-xs font-semibold tracking-wider uppercase order-2 md:order-1 flex items-center justify-center gap-2 flex-wrap">
               <span className="font-extrabold text-white">RIDER IQ</span>
               <span>•</span>
               <span>© 2026 RiderIQ</span>
@@ -363,7 +363,7 @@ export function CinematicFooter() {
               <span className="text-neutral-400">Built for the ride.</span>
             </div>
 
-            <div className="footer-glass-pill px-5 py-2.5 rounded-full flex items-center gap-2 order-1 md:order-2 cursor-default border-white/10">
+            <div className="footer-glass-pill px-4 sm:px-5 py-2 rounded-full flex items-center justify-center gap-2 order-1 md:order-2 cursor-default border-white/10 mx-auto md:mx-0">
               <span className="text-neutral-400 text-[10px] md:text-xs font-bold uppercase tracking-widest">Designed & Built</span>
               <span className="animate-footer-heartbeat text-xs md:text-sm text-cyan-400">⚡</span>
               <span className="text-neutral-400 text-[10px] md:text-xs font-bold uppercase tracking-widest">for Riders</span>
@@ -373,7 +373,7 @@ export function CinematicFooter() {
               as="button"
               onClick={scrollToTop}
               aria-label="Back to top"
-              className="w-11 h-11 rounded-full footer-glass-pill flex items-center justify-center text-neutral-400 hover:text-white group order-3"
+              className="w-11 h-11 rounded-full footer-glass-pill flex items-center justify-center text-neutral-400 hover:text-white group order-3 mx-auto md:mx-0"
             >
               <svg className="w-5 h-5 transform group-hover:-translate-y-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>

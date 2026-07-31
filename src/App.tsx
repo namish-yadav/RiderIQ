@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, lazy, Suspense } from "react";
 import "./App.css";
-import HyperSpeed from "./components/HyperSpeed";
 import TubesCursor from "./components/TubesCursor";
+
+const HyperSpeed = lazy(() => import("./components/HyperSpeed"));
 import StaggeredMenu from "./components/StaggeredMenu";
 import SpecularButton from "./components/SpecularButton";
 import Shuffle from "./components/ui/Shuffle";
@@ -13,7 +14,6 @@ import NavigationAlertsHUD from "./components/ui/NavigationAlertsHUD";
 import SensorCalibrationHUD from "./components/ui/SensorCalibrationHUD";
 import MultiplayerLeaderboard from "./components/ui/MultiplayerLeaderboard";
 import PostRideSummaryHUD from "./components/ui/PostRideSummaryHUD";
-import SpotifyMusicHUD from "./components/ui/SpotifyMusicHUD";
 import {
   Navigation,
   MapPin,
@@ -32,7 +32,6 @@ import {
   CloudSun,
   Layers3,
   Globe,
-  MousePointerClick,
   Users,
   Sliders,
   Flag,
@@ -41,6 +40,10 @@ import {
   Send,
   MessageSquare
 } from "lucide-react";
+
+// Lazy-load SpotifyMusicHUD — it's a large (41KB) below-the-fold component.
+// This splits it into its own async JS chunk, reducing initial JS payload.
+const SpotifyMusicHUD = lazy(() => import("./components/ui/SpotifyMusicHUD"));
 
 const menuItems = [
   { label: "Overview", ariaLabel: "Overview of RiderIQ", link: "#overview" },
@@ -57,6 +60,8 @@ const menuItems = [
   { label: "Early Access", ariaLabel: "Join Waitlist", link: "#waitlist" },
 ];
 
+// ─── Module-level constants — defined once, never recreated on render ─────────
+
 const bikeProfiles = [
   {
     id: "hunter",
@@ -69,7 +74,7 @@ const bikeProfiles = [
       { label: "Distance", value: "142.8", unit: "km", color: "text-white" },
       { label: "Duration", value: "2h 45m", unit: "", color: "text-white" },
       { label: "Fuel Economy", value: "36.2", unit: "km/L", color: "text-cyan-400" },
-      { label: "Top Speed", value: "132", unit: "km/h", color: "text-cyan-400" },
+      { label: "Top Speed", value: "118", unit: "km/h", color: "text-cyan-400" },
       { label: "Max Lean", value: "31°", unit: "Left", color: "text-purple-400" },
     ],
     footer: { left: "26°C  Clear Sky", right: "Connected with Group" },
@@ -85,7 +90,7 @@ const bikeProfiles = [
       { label: "Distance", value: "218.4", unit: "km", color: "text-white" },
       { label: "Duration", value: "3h 12m", unit: "", color: "text-white" },
       { label: "Fuel Economy", value: "28.6", unit: "km/L", color: "text-orange-400" },
-      { label: "Top Speed", value: "162", unit: "km/h", color: "text-orange-400" },
+      { label: "Top Speed", value: "154", unit: "km/h", color: "text-orange-400" },
       { label: "Max Lean", value: "42°", unit: "Right", color: "text-purple-400" },
     ],
     footer: { left: "22°C  Partly Cloudy", right: "GPS 100% Lock" },
@@ -101,11 +106,62 @@ const bikeProfiles = [
       { label: "Distance", value: "96.3", unit: "km", color: "text-white" },
       { label: "Duration", value: "1h 58m", unit: "", color: "text-white" },
       { label: "Fuel Economy", value: "38.4", unit: "km/L", color: "text-red-400" },
-      { label: "Top Speed", value: "108", unit: "km/h", color: "text-red-400" },
+      { label: "Top Speed", value: "112", unit: "km/h", color: "text-red-400" },
       { label: "Max Lean", value: "22°", unit: "Left", color: "text-purple-400" },
     ],
     footer: { left: "29°C  Clear Sky", right: "GPS 100% Lock" },
   },
+];
+
+const EXPERIENCE_NODES = [
+  {
+    id: "Map",
+    title: "Map",
+    icon: Navigation,
+    color: "from-cyan-500 to-blue-500",
+    textColor: "text-cyan-400",
+    description: "Precision GPS tracking & real-time route visualization mapped dynamically to your speed."
+  },
+  {
+    id: "Music",
+    title: "Music",
+    icon: Music,
+    color: "from-[#1DB954] to-emerald-600",
+    textColor: "text-[#1DB954]",
+    description: "Live Spotify Web API Intercom Cockpit with speed-adaptive volume boost & speed-trap radar auto-ducking."
+  },
+  {
+    id: "Data",
+    title: "Data",
+    icon: Activity,
+    color: "from-emerald-500 to-teal-500",
+    textColor: "text-emerald-400",
+    description: "Telemetry, lean angle, fuel efficiency, and speed statistics computed live per ride."
+  },
+  {
+    id: "Routes",
+    title: "Routes",
+    icon: Compass,
+    color: "from-amber-500 to-orange-500",
+    textColor: "text-amber-400",
+    description: "Route intelligence that turns asphalt into memory and discovers twisties near you."
+  },
+  {
+    id: "Destinations",
+    title: "Destinations",
+    icon: MapPin,
+    color: "from-indigo-500 to-purple-500",
+    textColor: "text-indigo-400",
+    description: "Keep your favorite pit-stops, mountain passes, and coffee spots accessible in one tap."
+  },
+  {
+    id: "History",
+    title: "History",
+    icon: BarChart3,
+    color: "from-blue-500 to-indigo-500",
+    textColor: "text-blue-400",
+    description: "Every journey safely archived with full cost, fuel, and performance metrics over time."
+  }
 ];
 
 function App() {
@@ -115,13 +171,13 @@ function App() {
   const [activeNode, setActiveNode] = useState<string>("Map");
   const [copiedEmail, setCopiedEmail] = useState(false);
 
-  const handleCopyEmail = () => {
+  const handleCopyEmail = useCallback(() => {
     navigator.clipboard.writeText("contactphoenixfy@gmail.com");
     setCopiedEmail(true);
     setTimeout(() => setCopiedEmail(false), 2500);
-  };
+  }, []);
 
-  const handleWaitlistSubmit = (e: React.FormEvent) => {
+  const handleWaitlistSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (email.trim()) {
       setSubmitted(true);
@@ -129,65 +185,18 @@ function App() {
         setEmail("");
       }, 3000);
     }
-  };
+  }, [email]);
 
-  const experienceNodes = [
-    {
-      id: "Map",
-      title: "Map",
-      icon: Navigation,
-      color: "from-cyan-500 to-blue-500",
-      textColor: "text-cyan-400",
-      description: "Precision GPS tracking & real-time route visualization mapped dynamically to your speed."
-    },
-    {
-      id: "Music",
-      title: "Music",
-      icon: Music,
-      color: "from-[#1DB954] to-emerald-600",
-      textColor: "text-[#1DB954]",
-      description: "Live Spotify Web API Intercom Cockpit with speed-adaptive volume boost & speed-trap radar auto-ducking."
-    },
-    {
-      id: "Data",
-      title: "Data",
-      icon: Activity,
-      color: "from-emerald-500 to-teal-500",
-      textColor: "text-emerald-400",
-      description: "Telemetry, lean angle, fuel efficiency, and speed statistics computed live per ride."
-    },
-    {
-      id: "Routes",
-      title: "Routes",
-      icon: Compass,
-      color: "from-amber-500 to-orange-500",
-      textColor: "text-amber-400",
-      description: "Route intelligence that turns asphalt into memory and discovers twisties near you."
-    },
-    {
-      id: "Destinations",
-      title: "Destinations",
-      icon: MapPin,
-      color: "from-indigo-500 to-purple-500",
-      textColor: "text-indigo-400",
-      description: "Keep your favorite pit-stops, mountain passes, and coffee spots accessible in one tap."
-    },
-    {
-      id: "History",
-      title: "History",
-      icon: BarChart3,
-      color: "from-blue-500 to-indigo-500",
-      textColor: "text-blue-400",
-      description: "Every journey safely archived with full cost, fuel, and performance metrics over time."
-    }
-  ];
+  const experienceNodes = EXPERIENCE_NODES;
 
   return (
     <div className="relative min-h-screen bg-black text-white selection:bg-cyan-500/30 selection:text-cyan-200">
       
       {/* Background WebGL Animations: HyperSpeed + Interactive TubesCursor */}
       <div className="fixed inset-0 z-0 opacity-35 pointer-events-none">
-        <HyperSpeed />
+        <Suspense fallback={null}>
+          <HyperSpeed />
+        </Suspense>
       </div>
       <TubesCursor className="z-0 opacity-40" interactiveColors={true} />
 
@@ -224,7 +233,7 @@ function App() {
         isFixed={true}
       />
 
-      <main className="relative z-10 w-full pt-16">
+      <main className="relative z-10 w-full pt-16 overflow-x-hidden">
 
         {/* Hero Section */}
         <AnimatedContent distance={80} direction="vertical" duration={0.9} ease="power3.out">
@@ -246,7 +255,7 @@ function App() {
               RiderIQ turns every motorcycle ride into post-ride telemetry reports, ETA pace calculations, 6-axis lean graphs, and friend leaderboards.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-md mb-8">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-md">
               <a href="#waitlist" className="w-full sm:w-auto">
                 <SpecularButton size="lg" radius={999} lineColor="#06b6d4" baseColor="#0e7490" textColor="#ffffff" className="w-full">
                   Join Waitlist ↗
@@ -255,15 +264,10 @@ function App() {
 
               <a
                 href="#ride-summary"
-                className="w-full sm:w-auto px-8 py-4 rounded-full text-sm font-semibold border border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/40 transition-all text-center"
+                className="w-full sm:w-auto px-8 py-4 rounded-full text-sm font-semibold border border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/40 transition-all text-center min-h-[44px] flex items-center justify-center"
               >
                 View Post-Ride Demo
               </a>
-            </div>
-
-            <div className="inline-flex items-center gap-2 text-xs font-mono text-neutral-400 bg-white/5 px-4 py-2 rounded-full border border-white/10">
-              <MousePointerClick className="w-4 h-4 text-cyan-400 animate-bounce" />
-              Click anywhere on screen to randomize WebGL tube lighting
             </div>
           </section>
         </AnimatedContent>
@@ -282,7 +286,7 @@ function App() {
                 Automatic Post-Ride Telemetry Card & ETA Comparison
               </h2>
               <p className="text-neutral-300 text-base sm:text-lg">
-                After every ride, RiderIQ compiles your distance, top speed, average speed, max lean angle, velocity curve, and compares your actual duration against Google Maps estimated ETA (e.g. <strong>Beta to Delta: 10 min ETA vs 6 min actual = 4 min faster ⚡</strong>).
+                After every ride, RiderIQ compiles your distance, top speed, average speed, max lean angle, velocity curve, and compares your actual duration against Google Maps estimated ETA (e.g. <strong>Greater Noida to Mathura: 75 min ETA vs 52 min actual = 23 min faster ⚡</strong>).
               </p>
             </div>
 
@@ -459,7 +463,13 @@ function App() {
               </p>
             </div>
 
-            <SpotifyMusicHUD />
+            <Suspense fallback={
+              <div className="rounded-3xl glass-panel border border-white/15 p-8 flex items-center justify-center min-h-[200px]">
+                <div className="text-xs font-mono text-neutral-400 animate-pulse">Loading Spotify Cockpit...</div>
+              </div>
+            }>
+              <SpotifyMusicHUD />
+            </Suspense>
           </section>
         </AnimatedContent>
 
@@ -801,34 +811,34 @@ function App() {
                   </div>
                 </div>
 
-                <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                  <a href="mailto:contactphoenixfy@gmail.com" className="no-underline">
-                    <SpecularButton size="lg" radius={999} lineColor="#06b6d4" baseColor="#0891b2" textColor="#ffffff" className="w-full sm:w-auto">
+                <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 max-w-full overflow-hidden">
+                  <a href="mailto:contactphoenixfy@gmail.com" className="no-underline shrink-0">
+                    <SpecularButton size="lg" radius={999} lineColor="#06b6d4" baseColor="#0891b2" textColor="#ffffff" className="w-full sm:w-auto min-h-[44px]">
                       Contact RiderIQ ↗
                     </SpecularButton>
                   </a>
 
                   <a
                     href="mailto:contactphoenixfy@gmail.com"
-                    className="px-6 py-3.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/15 hover:border-cyan-400 text-lg font-mono text-cyan-400 hover:text-cyan-300 transition-all flex items-center justify-center gap-2.5"
+                    className="px-4 sm:px-6 py-3.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/15 hover:border-cyan-400 text-xs sm:text-base md:text-lg font-mono text-cyan-400 hover:text-cyan-300 transition-all flex items-center justify-center gap-2 max-w-full overflow-hidden min-h-[44px]"
                   >
-                    <Mail className="w-5 h-5 text-cyan-400" />
-                    <span>contactphoenixfy@gmail.com</span>
+                    <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400 shrink-0" />
+                    <span className="truncate">contactphoenixfy@gmail.com</span>
                   </a>
 
                   <button
                     onClick={handleCopyEmail}
-                    className="px-5 py-3.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/15 hover:border-white/30 text-xs font-mono font-bold text-neutral-300 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    className="px-4 sm:px-5 py-3.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/15 hover:border-white/30 text-xs font-mono font-bold text-neutral-300 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 min-h-[44px]"
                     title="Copy Email to Clipboard"
                   >
                     {copiedEmail ? (
                       <>
-                        <Check className="w-4 h-4 text-emerald-400" />
+                        <Check className="w-4 h-4 text-emerald-400 shrink-0" />
                         <span className="text-emerald-400">Copied!</span>
                       </>
                     ) : (
                       <>
-                        <Copy className="w-4 h-4 text-neutral-400" />
+                        <Copy className="w-4 h-4 text-neutral-400 shrink-0" />
                         <span>Copy Email</span>
                       </>
                     )}

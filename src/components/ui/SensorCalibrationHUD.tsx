@@ -38,46 +38,47 @@ export default function SensorCalibrationHUD() {
         <div className="lg:col-span-6 p-6 rounded-2xl bg-black/70 border border-white/10 space-y-5">
           <div className="text-xs font-mono text-neutral-400">SELECT PHONE MOUNTING LOCATION</div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 max-w-full">
             {(['handlebar', 'tankbag', 'pocket'] as const).map((type) => (
               <button
                 key={type}
                 onClick={() => setMountType(type)}
-                className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all cursor-pointer ${
+                className={`p-2 sm:p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer min-h-[54px] w-full min-w-0 overflow-hidden ${
                   mountType === type
                     ? 'bg-cyan-500/10 border-cyan-400 text-white shadow-lg shadow-cyan-500/10 font-bold'
                     : 'bg-white/5 border-white/10 text-neutral-400 hover:text-white'
                 }`}
               >
-                <span className="text-2xl">{mountProfiles[type].icon}</span>
-                <span className="text-[11px] font-mono capitalize">{type}</span>
+                <span className="text-xl sm:text-2xl shrink-0">{mountProfiles[type].icon}</span>
+                <span className="text-[10px] sm:text-[11px] font-mono capitalize truncate max-w-full leading-tight text-center">{type}</span>
               </button>
             ))}
           </div>
 
           {/* Orientation Toggle */}
-          <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
-            <div className="flex items-center gap-3">
-              <Smartphone className={`w-5 h-5 text-cyan-400 ${orientation === 'landscape' ? 'rotate-90' : ''} transition-transform duration-300`} />
-              <div>
-                <div className="text-xs font-mono text-neutral-400">SCREEN ORIENTATION</div>
-                <div className="text-sm font-bold text-white capitalize">{orientation} Mode</div>
+          <div className="flex items-center justify-between p-3.5 sm:p-4 rounded-xl bg-white/5 border border-white/10 gap-3 max-w-full overflow-hidden">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 overflow-hidden">
+              <Smartphone className={`w-5 h-5 text-cyan-400 shrink-0 ${orientation === 'landscape' ? 'rotate-90' : ''} transition-transform duration-300`} />
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <div className="text-[10px] sm:text-xs font-mono text-neutral-400 uppercase tracking-wider truncate">SCREEN ORIENTATION</div>
+                <div className="text-xs sm:text-sm font-bold text-white capitalize truncate">{orientation} Mode</div>
               </div>
             </div>
 
             <button
               onClick={() => setOrientation(orientation === 'portrait' ? 'landscape' : 'portrait')}
-              className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-mono text-cyan-300 flex items-center gap-1 transition-all cursor-pointer"
+              className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-mono text-cyan-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 min-h-[44px]"
             >
-              <RefreshCcw className="w-3.5 h-3.5" /> Switch
+              <RefreshCcw className="w-3.5 h-3.5 shrink-0" />
+              <span>Switch</span>
             </button>
           </div>
 
           {/* Dynamic IMU Sensor Matrix Visualizer */}
-          <div className="p-4 rounded-xl bg-neutral-900/80 border border-white/10 space-y-3">
-            <div className="flex justify-between items-center text-xs font-mono">
-              <span className="text-neutral-400">PITCH ANGLE TILT (MOUNT ANGLE)</span>
-              <span className="text-cyan-400 font-bold">+{pitchOffset}°</span>
+          <div className="p-4 rounded-xl bg-neutral-900/80 border border-white/10 space-y-3 max-w-full overflow-hidden">
+            <div className="flex justify-between items-center text-xs font-mono gap-2 flex-wrap">
+              <span className="text-neutral-400 truncate">PITCH ANGLE TILT (MOUNT ANGLE)</span>
+              <span className="text-cyan-400 font-bold shrink-0">+{pitchOffset}°</span>
             </div>
             <input
               type="range"
@@ -88,8 +89,8 @@ export default function SensorCalibrationHUD() {
               className="w-full accent-cyan-400 bg-neutral-800 h-2 rounded-lg cursor-pointer"
             />
             <div className="text-[11px] font-mono text-emerald-400 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              RiderIQ auto-zeroes +{pitchOffset}° pitch offset. True lean angle remains 0° at rest!
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <span>RiderIQ auto-zeroes +{pitchOffset}° pitch offset. True lean angle remains 0° at rest!</span>
             </div>
           </div>
         </div>
